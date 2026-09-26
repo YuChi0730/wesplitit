@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Split · 分帳｜免費線上分帳工具 · 旅遊聚餐 AA 制均分</title>
+<meta name="description" content="免費線上分帳工具,適合旅遊、聚餐、合租 AA 制。輸入總額自動均分或自訂金額,分享連結給成員回報已繳,發起人一鍵確認收款,分帳清清楚楚不尷尬。免註冊、免下載。">
+<meta name="keywords" content="分帳,分帳工具,線上分帳,AA制,均分,旅遊分帳,聚餐分帳,合租分帳,分帳神器,免費分帳">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://wesplitit.netlify.app/">
+
+<!-- 分享預覽卡(Open Graph / Twitter)。貼到 LINE / FB / Messenger 會顯示卡片 -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Split · 分帳">
+<meta property="og:title" content="Split · 分帳 — 分帳,清清楚楚">
+<meta property="og:description" content="建立帳本、分享連結給成員,線上回報已繳,發起人確認收款。">
+<meta property="og:url" content="https://wesplitit.netlify.app/">
+<meta property="og:image" content="https://wesplitit.netlify.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Split · 分帳 — 分帳,清清楚楚">
+<meta name="twitter:description" content="建立帳本、分享連結給成員,線上回報已繳,發起人確認收款。">
+<meta name="twitter:image" content="https://wesplitit.netlify.app/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E🧾%3C/text%3E%3C/svg%3E">
+
+<!-- 結構化資料:幫助 Google 理解這是免費網頁應用 -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Split · 分帳",
+  "url": "https://wesplitit.netlify.app/",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Web",
+  "inLanguage": "zh-Hant",
+  "description": "免費線上分帳工具,適合旅遊、聚餐、合租 AA 制。自動均分、分享連結回報已繳、發起人確認收款。",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "TWD" }
+}
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+  :root{
+    --paper:#f7f1e3;
+    --ink:#2b2620;
+    --ink-soft:#6b6358;
+    --line:#d8cdb5;
+    --accent:#c0392b;       /* 印章紅 */
+    --paid:#1f7a4d;         /* 已付綠 */
+    --paid-bg:#e3f0e6;
+    --unpaid:#b06a2c;       /* 未付琥珀 */
+    --unpaid-bg:#f6e9d6;
+    --card:#fffdf6;
+    --shadow:rgba(43,38,32,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{background:var(--paper);color:var(--ink);font-family:'Noto Sans TC',sans-serif;}
+  body{
+    min-height:100vh;
+    display:flex;flex-direction:column;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(192,57,43,.04), transparent 40%),
+      radial-gradient(circle at 88% 92%, rgba(31,122,77,.04), transparent 40%),
+      repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(216,205,181,.35) 31px, rgba(216,205,181,.35) 32px);
+    padding:24px 16px 24px;
+  }
+  .wrap{width:100%;max-width:560px;margin:0 auto;}
+
+  /* ---------- 票券外框 ---------- */
+  .ticket{
+    background:var(--card);
+    border-radius:14px;
+    box-shadow:0 12px 36px var(--shadow), 0 2px 0 #fff inset;
+    overflow:hidden;
+    position:relative;
+    animation:rise .5s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+
+  .ticket-head{
+    background:var(--ink);
+    color:var(--paper);
+    padding:22px 24px 26px;
+    position:relative;
+  }
+  .ticket-head::after{
+    content:"";position:absolute;left:0;right:0;bottom:-9px;height:18px;
+    background:radial-gradient(circle at 9px -2px, transparent 9px, var(--ink) 10px) repeat-x;
+    background-size:18px 18px;
+  }
+  .brand{display:flex;align-items:center;gap:8px;font-family:'Noto Serif TC',serif;letter-spacing:.18em;font-size:13px;opacity:.85;text-transform:uppercase;}
+  .brand .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px rgba(192,57,43,.25);}
+  .ticket-title{font-family:'Noto Serif TC',serif;font-weight:900;font-size:27px;margin-top:10px;line-height:1.25;word-break:break-word;}
+  .ticket-sub{font-size:13px;opacity:.7;margin-top:6px;}
+
+  .ticket-body{padding:24px;}
+
+  /* ---------- 總額區 ---------- */
+  .total-row{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    padding-bottom:16px;margin-bottom:6px;border-bottom:2px dashed var(--line);
+  }
+  .total-label{font-size:13px;color:var(--ink-soft);letter-spacing:.05em;}
+  .total-amt{font-family:'Noto Serif TC',serif;font-weight:900;font-size:34px;line-height:1;}
+  .total-amt .cur{font-size:17px;color:var(--ink-soft);margin-right:3px;}
+  .per-row{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-soft);margin:14px 0 4px;}
+  .per-row b{color:var(--ink);font-weight:700;}
+
+  /* ---------- 進度 ---------- */
+  .progress{margin:18px 0 8px;}
+  .bar{height:10px;border-radius:99px;background:var(--unpaid-bg);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.08);}
+  .bar-fill{height:100%;background:linear-gradient(90deg,#27a063,var(--paid));width:0;transition:width .6s cubic-bezier(.2,.8,.2,1);border-radius:99px;}
+  .prog-text{display:flex;justify-content:space-between;font-size:12px;margin-top:7px;color:var(--ink-soft);}
+  .prog-text .ok{color:var(--paid);font-weight:700;}
+  .prog-text .left{color:var(--unpaid);font-weight:700;}
+
+  /* ---------- 名單 ---------- */
+  .people{list-style:none;margin-top:18px;}
+  .person{
+    display:flex;align-items:center;gap:13px;
+    padding:13px 4px;border-bottom:1px solid var(--line);
+  }
+  .person:last-child{border-bottom:none;}
+  .avatar{
+    width:38px;height:38px;border-radius:50%;flex:0 0 38px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Noto Serif TC',serif;font-weight:700;font-size:16px;color:#fff;
+  }
+  .p-mid{flex:1;min-width:0;}
+  .p-name{font-weight:500;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .p-amt{font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums;}
+  .badge{
+    font-size:12px;font-weight:700;padding:6px 12px;border-radius:99px;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:5px;border:none;cursor:default;font-family:inherit;
+    transition:transform .12s ease;
+  }
+  .badge.paid{background:var(--paid-bg);color:var(--paid);}
+  .badge.unpaid{background:var(--unpaid-bg);color:var(--unpaid);}
+  .badge.pending{background:#dfe9f3;color:#2c6e91;}
+  .badge.pending.tappable{box-shadow:0 0 0 2px rgba(44,110,145,.18);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+  .person.is-pending .p-name{color:#2c6e91;}
+  .badge.tappable{cursor:pointer;}
+  .badge.tappable:active{transform:scale(.93);}
+  .badge .ic{font-size:13px;line-height:1;}
+
+  .paid-stamp{position:relative;}
+  .person.is-paid .p-name{color:var(--ink-soft);}
+
+  /* ---------- 收款資訊 ---------- */
+  .pay-box{
+    margin-top:22px;background:var(--paper);border:1.5px solid var(--line);
+    border-radius:12px;padding:16px 18px;
+  }
+  .pay-box h3{font-family:'Noto Serif TC',serif;font-size:15px;display:flex;align-items:center;gap:7px;margin-bottom:12px;}
+  .pay-box h3 .tag{font-size:10px;background:var(--accent);color:#fff;padding:2px 7px;border-radius:5px;letter-spacing:.1em;font-family:'Noto Sans TC';font-weight:700;}
+  .pay-line{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:7px 0;border-bottom:1px dotted var(--line);}
+  .pay-line:last-child{border-bottom:none;}
+  .pay-line .k{color:var(--ink-soft);flex:0 0 auto;}
+  .pay-line .v{font-weight:600;text-align:right;word-break:break-all;font-variant-numeric:tabular-nums;}
+  .copy-btn{
+    margin-left:8px;font-size:11px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
+    padding:4px 9px;border-radius:6px;cursor:pointer;font-family:inherit;flex:0 0 auto;transition:all .15s;
+  }
+  .copy-btn:active{transform:scale(.92);}
+  .copy-btn.done{background:var(--paid);color:#fff;border-color:var(--paid);}
+
+  .note-box{margin-top:14px;font-size:13px;color:var(--ink-soft);line-height:1.7;background:#fffbe9;border-left:3px solid var(--unpaid);padding:10px 14px;border-radius:0 8px 8px 0;}
+
+  .foot{text-align:center;font-size:11px;color:var(--ink-soft);margin-top:22px;letter-spacing:.08em;opacity:.7;}
+
+  /* Buy Me a Coffee 贊助區(獨立於帳本卡片外) */
+  .bmc-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:24px;text-align:center;}
+  .bmc-say{font-size:13px;color:var(--ink-soft);letter-spacing:.02em;}
+  .bmc{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:99px;background:var(--unpaid);color:#fff;font-family:'Noto Serif TC',serif;font-weight:700;font-size:15px;text-decoration:none;box-shadow:0 6px 16px rgba(176,106,44,.28);transition:transform .12s,box-shadow .2s;}
+  .bmc:hover{box-shadow:0 8px 20px rgba(176,106,44,.36);}
+  .bmc:active{transform:translateY(1px);}
+  .bmc svg{width:18px;height:18px;flex:0 0 auto;}
+
+  /* 開發者署名 */
+  .made-by{text-align:center;font-size:10.5px;color:var(--ink-soft);opacity:.4;letter-spacing:.16em;margin-top:auto;padding-top:40px;font-family:'Noto Serif TC',serif;}
+
+  /* ---------- 表單 ---------- */
+  .editor{background:var(--card);border-radius:14px;box-shadow:0 12px 36px var(--shadow);padding:26px 22px;animation:rise .5s both;}
+  .editor h1{font-family:'Noto Serif TC',serif;font-weight:900;font-size:25px;display:flex;align-items:center;gap:9px;}
+  .editor h1 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);}
+  .editor .lead{font-size:13px;color:var(--ink-soft);margin:8px 0 22px;line-height:1.6;}
+
+  /* 我的帳本(本機救援清單) */
+  .mybooks{background:var(--card);border-radius:14px;box-shadow:0 12px 36px var(--shadow);padding:16px 18px;margin-bottom:16px;animation:rise .5s both;}
+  .mb-head{font-family:'Noto Serif TC',serif;font-weight:700;font-size:15px;margin-bottom:8px;}
+  .mb-head .opt{font-weight:400;color:var(--ink-soft);font-size:12px;}
+  .mb-row{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);}
+  .mb-row:first-of-type{border-top:none;}
+  .mb-open{flex:1;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 2px;text-decoration:none;color:var(--ink);min-width:0;}
+  .mb-title{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mb-open:hover .mb-title,.mb-open:active .mb-title{color:var(--accent);}
+  .mb-go{flex:0 0 auto;font-size:12px;color:var(--accent);font-weight:700;}
+  .mb-del{flex:0 0 auto;width:30px;height:30px;border:none;background:none;color:var(--ink-soft);font-size:20px;cursor:pointer;border-radius:6px;}
+  .mb-del:active{background:var(--unpaid-bg);}
+  .field{margin-bottom:17px;}
+  label{display:block;font-size:13px;font-weight:700;margin-bottom:6px;}
+  label .opt{font-weight:400;color:var(--ink-soft);font-size:12px;}
+  input[type=text],input[type=number],textarea,select{
+    width:100%;font-family:inherit;font-size:15px;color:var(--ink);
+    background:var(--paper);border:1.5px solid var(--line);border-radius:9px;padding:11px 13px;transition:border .15s,box-shadow .15s;
+  }
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(192,57,43,.12);}
+  .row2{display:flex;gap:10px;}
+  .row2>*{flex:1;}
+  .seg{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;}
+  .seg button{flex:1;min-width:64px;padding:10px 0;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;font-family:inherit;font-size:14px;cursor:pointer;color:var(--ink-soft);transition:all .15s;}
+  .seg button.on{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700;}
+
+  .owner-join{display:flex;align-items:center;gap:12px;padding:13px 15px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;background:var(--paper);transition:all .15s;}
+  .owner-join.on{border-color:var(--accent);background:#fdf3f1;}
+  .owner-join .oj-check{width:24px;height:24px;flex:0 0 24px;border-radius:7px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:#fff;transition:all .15s;}
+  .owner-join.on .oj-check{background:var(--accent);border-color:var(--accent);}
+  .owner-join .oj-text{display:flex;flex-direction:column;gap:2px;}
+  .owner-join .oj-text b{font-size:15px;}
+  .owner-join .oj-text small{font-size:12px;color:var(--ink-soft);line-height:1.4;}
+
+  .ppl-edit{display:flex;flex-direction:column;gap:9px;margin-top:4px;}
+  .ppl-edit .pe-row{display:flex;gap:8px;align-items:center;}
+  .ppl-edit .pe-row .idx{width:26px;height:26px;border-radius:50%;background:var(--line);color:var(--ink);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 26px;}
+  .ppl-edit input{flex:1;}
+  .ppl-edit .amt-in{flex:0 0 96px;}
+  .ppl-edit .del{flex:0 0 auto;width:30px;height:30px;border:none;background:none;color:var(--ink-soft);font-size:20px;cursor:pointer;border-radius:6px;}
+  .ppl-edit .del:active{background:var(--unpaid-bg);}
+  .add-p{margin-top:10px;width:100%;padding:10px;border:1.5px dashed var(--line);background:none;border-radius:9px;color:var(--accent);font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;}
+
+  .split-info{font-size:12px;color:var(--ink-soft);margin-top:8px;text-align:right;}
+  .split-info.warn{color:var(--accent);font-weight:700;}
+
+  .actions{display:flex;gap:10px;margin-top:24px;}
+  .btn{flex:1;padding:14px;border:none;border-radius:10px;font-family:'Noto Serif TC',serif;font-weight:700;font-size:16px;cursor:pointer;transition:transform .12s,box-shadow .2s;}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 6px 16px rgba(192,57,43,.3);}
+  .btn-ghost{background:var(--paper);color:var(--ink);border:1.5px solid var(--line);}
+
+  /* ---------- 分享浮層 ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(43,38,32,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;backdrop-filter:blur(3px);}
+  .overlay.show{display:flex;animation:fade .2s;}
+  @keyframes fade{from{opacity:0;}to{opacity:1;}}
+  .modal{background:var(--card);border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4);animation:rise .35s both;}
+  .modal h2{font-family:'Noto Serif TC',serif;font-size:21px;display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .modal p{font-size:13px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;}
+  .link-field{display:flex;gap:8px;}
+  .link-field input{flex:1;min-width:0;font-size:13px;}
+  .modal .actions{margin-top:18px;}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:12px 22px;border-radius:99px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:all .3s;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.3);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* 編輯入口浮鈕(發起人在檢視帳本時) */
+  /* 發起人操作鈕:icon,藏在黑色標題區右上 */
+  .head-actions{position:absolute;top:18px;right:18px;display:flex;gap:9px;z-index:5;}
+  .head-actions>button,.head-actions .hmenu-btn{width:38px;height:38px;border-radius:50%;border:1px solid rgba(247,241,227,.22);background:rgba(247,241,227,.10);color:var(--paper);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,transform .12s;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}
+  .head-actions>button:hover,.head-actions .hmenu-btn:hover{background:rgba(247,241,227,.20);}
+  .head-actions>button:active,.head-actions .hmenu-btn:active{transform:scale(.9);}
+  .head-actions>button svg,.head-actions .hmenu-btn svg{width:18px;height:18px;}
+
+  /* 下拉選單 */
+  .hmenu-wrap{position:relative;}
+  .hmenu{position:absolute;top:46px;right:0;min-width:172px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.28);padding:6px;display:none;flex-direction:column;gap:2px;z-index:20;animation:rise .18s both;}
+  .hmenu-wrap.open .hmenu{display:flex;}
+  .hmenu button{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border:none;background:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:500;color:var(--ink);cursor:pointer;text-align:left;}
+  .hmenu button:hover{background:var(--paper);}
+  .hmenu button svg{width:18px;height:18px;flex:0 0 auto;color:var(--ink-soft);}
+
+  /* 歷史紀錄 icon(編輯頁標題右側,淺底版) */
+  .ed-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .hist-btn{flex:0 0 auto;width:38px;height:38px;border-radius:50%;border:1.5px solid var(--line);background:var(--paper);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
+  .hist-btn:hover{color:var(--accent);border-color:var(--accent);}
+  .hist-btn:active{transform:scale(.92);}
+  .hist-btn svg{width:19px;height:19px;}
+  #historyList{max-height:52vh;overflow:auto;margin:-2px 0 2px;}
+
+  .hint-top{background:var(--unpaid-bg);color:var(--unpaid);font-size:12.5px;text-align:center;padding:9px;border-radius:9px;margin-bottom:16px;line-height:1.5;font-weight:500;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="made-by">Made by YC</div>
+<div class="toast" id="toast"></div>
+
+<!-- 分享浮層 -->
+<div class="overlay" id="shareOverlay">
+  <div class="modal">
+    <h2>🔗 分享給成員</h2>
+    <p>把這條<b>成員連結</b>貼到群組。成員開啟後可看到明細,並在自己那列按「我已繳」送出申報;狀態會即時同步,<b>由你確認後才算「已付」</b>。</p>
+    <div class="link-field">
+      <input type="text" id="shareLink" readonly>
+      <button class="btn btn-primary" style="flex:0 0 auto;padding:10px 15px;" onclick="copyShare()" title="複製連結" aria-label="複製連結">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <button class="btn btn-primary" id="nativeShareBtn" style="flex:0 0 auto;padding:10px 15px;display:none;" onclick="nativeShare()" title="分享" aria-label="分享">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+      </button>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="closeShare()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 歷史紀錄浮層 -->
+<div class="overlay" id="historyOverlay">
+  <div class="modal">
+    <h2>🕘 我建立過的帳本</h2>
+    <p>存在這台裝置,可重新開啟管理(遺失連結時用)。</p>
+    <div id="historyList"></div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="closeHistory()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 銀行代碼對照(常見) ============ */
+const BANKS = {
+  "004":"臺灣銀行","005":"土地銀行","006":"合作金庫","007":"第一銀行","008":"華南銀行",
+  "009":"彰化銀行","011":"上海商銀","012":"台北富邦","013":"國泰世華","017":"兆豐銀行",
+  "021":"花旗(台灣)","050":"臺灣企銀","052":"渣打銀行","081":"匯豐(台灣)","101":"瑞興銀行",
+  "103":"新光銀行","108":"陽信銀行","118":"板信銀行","700":"中華郵政","803":"聯邦銀行",
+  "805":"遠東商銀","806":"元大銀行","807":"永豐銀行","808":"玉山銀行","809":"凱基銀行",
+  "810":"星展(台灣)","812":"台新銀行","822":"中國信託"
+};
+
+/* ============ Firebase 設定 ============ */
+// 👉 到 https://console.firebase.google.com 建立專案 → 啟用「Realtime Database」
+//    → 專案設定 → 你的網頁 App → 把 firebaseConfig 內容貼到下面取代即可。
+//    Realtime Database 規則(測試用,任何人可讀寫,適合朋友分帳):
+//    { "rules": { ".read": true, ".write": true } }
+const firebaseConfig = {
+  apiKey:            "AIzaSyBAbgEEpThCKgGDDciatJCGYi0Lf3p1wFE",
+  authDomain:        "bill-splitter-13f2a.firebaseapp.com",
+  databaseURL:       "https://bill-splitter-13f2a-default-rtdb.firebaseio.com",
+  projectId:         "bill-splitter-13f2a",
+  storageBucket:     "bill-splitter-13f2a.firebasestorage.app",
+  messagingSenderId: "23619198348",
+  appId:             "1:23619198348:web:efe53cecfef4d08a738aa9",
+  measurementId:     "G-5FGT9TYSZD"
+};
+let db=null, cloudOK=false;
+try{
+  if(firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("請貼上")){
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    cloudOK = true;
+    // Analytics(查流量用)。在 file:// 直接開檔時可能無法啟用,故獨立 try,失敗不影響分帳功能。
+    try{ if(firebase.analytics && firebaseConfig.measurementId) firebase.analytics(); }
+    catch(e){ console.warn("Analytics 啟用失敗(部署到網站後才會記錄):", e); }
+  }
+}catch(e){ console.warn("Firebase 初始化失敗:", e); }
+
+/* ============ Buy Me a Coffee ============ */
+// 👉 換成你的 Buy Me a Coffee 連結(例如 "https://buymeacoffee.com/你的ID")。留空則不顯示贊助鈕。
+const BMC_URL = "https://buymeacoffee.com/YC0307";
+
+/* ============ 狀態 ============ */
+let state   = null;
+let isOwner = false;   // 此瀏覽器是否為發起人(持有 ownerKey)
+let mode    = "view";  // view | edit
+let bookId  = null;    // 雲端帳本 ID(公開,放在分享連結)
+let ownerKey= null;    // 發起人密鑰(只存本機與發起人網址,不外流)
+let unsub   = null;    // 解除雲端監聽
+
+/* ============ 工具 ============ */
+const $ = s => document.querySelector(s);
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const esc = s => (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const palette = ["#c0392b","#1f7a4d","#b06a2c","#2c6e91","#7d4b8c","#386641","#9c4221","#3d5a80"];
+
+function toast(msg){
+  const t=$("#toast");t.textContent=msg;t.classList.add("show");
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1900);
+}
+
+// 隨機 ID / 密鑰
+function genId(n=10){const c="abcdefghijkmnpqrstuvwxyz23456789";let s="";for(let i=0;i<n;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
+// 把 ownerKey 雜湊後存雲端,讓拿到連結的成員無法反推出密鑰(cyrb53)
+function keyHash(str){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<str.length;i++){const ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507);h1^=Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507);h2^=Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36);}
+
+// 解析網址:#bookId 或 #bookId.ownerKey
+function parseHash(){
+  const h=location.hash.slice(1);
+  if(!h) return {};
+  const [id,key]=h.split(".");
+  return {id, key};
+}
+
+/* ============ 空白帳本 ============ */
+function blankState(){
+  return {
+    title:"", total:0, mode:"even",
+    ownerJoin:true, ownerName:"我(代墊)",
+    people:[ {name:"",amt:0,paid:false,claimed:false}, {name:"",amt:0,paid:false,claimed:false} ],
+    pay:{ bankCode:"", bankName:"", acct:"", other:"" },
+    note:"", ownerHash:""
+  };
+}
+// 把雲端資料補齊欄位,避免缺欄報錯
+function normalize(d){
+  d=d||{};
+  d.title=d.title||""; d.total=+d.total||0; d.mode=d.mode==="custom"?"custom":"even";
+  d.ownerJoin=d.ownerJoin!==false; d.ownerName=d.ownerName||"我(代墊)";
+  d.people=(d.people||[]).map(p=>({name:p.name||"",amt:+p.amt||0,paid:!!p.paid,claimed:!!p.claimed}));
+  d.pay=d.pay||{}; d.pay={bankCode:d.pay.bankCode||"",bankName:d.pay.bankName||"",acct:d.pay.acct||"",other:d.pay.other||""};
+  d.note=d.note||""; d.ownerHash=d.ownerHash||"";
+  return d;
+}
+
+/* ============ 我的帳本(本機救援清單) ============ */
+// 列出這台裝置建立過的帳本(含舊版只存了密鑰、沒進清單的)
+function getMyBooks(){
+  let list=[];
+  try{ list = JSON.parse(localStorage.getItem("sb_books")||"[]"); }catch(e){}
+  if(!Array.isArray(list)) list=[];
+  const byId={}; list.forEach(b=>{ if(b&&b.id) byId[b.id]=b; });
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k && k.indexOf("sb_owner_")===0){
+      const id=k.slice(9);
+      if(!byId[id]){ const e={id,key:localStorage.getItem(k),title:"",ts:0}; byId[id]=e; list.push(e); }
+    }
+  }
+  return list.filter(b=>b&&b.id&&b.key).sort((a,b)=>(b.ts||0)-(a.ts||0));
+}
+function recordMyBook(id,key,title){
+  let list=getMyBooks().filter(b=>b.id!==id);
+  list.unshift({id,key,title:title||"",ts:Date.now()});
+  try{ localStorage.setItem("sb_books", JSON.stringify(list)); }catch(e){}
+}
+function setMyBookTitle(id,title){
+  let list=getMyBooks(); const b=list.find(x=>x.id===id); if(!b) return; b.title=title;
+  try{ localStorage.setItem("sb_books", JSON.stringify(list)); }catch(e){}
+}
+function removeMyBook(id){
+  if(!confirm("從清單移除後,若你沒有另外保存管理連結,將無法再管理這本帳。確定移除?")) return;
+  const list=getMyBooks().filter(b=>b.id!==id);
+  try{ localStorage.setItem("sb_books", JSON.stringify(list)); }catch(e){}
+  localStorage.removeItem("sb_owner_"+id);
+  if(getMyBooks().length){ openHistory(); }     // 還有紀錄→更新浮層
+  else { closeHistory(); render(); }             // 清空→關閉並重畫(移除 icon)
+}
+// 歷史紀錄 icon 按鈕(共用)
+function historyIconBtn(cls){
+  return `<button class="${cls||''}" onclick="openHistory()" title="我建立過的帳本" aria-label="歷史紀錄"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg></button>`;
+}
+function myBooksListHtml(){
+  const mb=getMyBooks();
+  if(!mb.length) return `<p style="text-align:center;color:var(--ink-soft);font-size:13px;padding:8px 0;">目前沒有紀錄</p>`;
+  return mb.map(b=>`<div class="mb-row" data-bk="${b.id}">
+      <a class="mb-open" href="#${b.id}.${b.key}" onclick="closeHistory()">
+        <span class="mb-title">${esc(b.title)||"未命名費用"}</span>
+      </a>
+      <button class="mb-del" onclick="removeMyBook('${b.id}')" title="從清單移除" aria-label="從清單移除">×</button>
+    </div>`).join("");
+}
+function openHistory(){ closeMenu(); $("#historyList").innerHTML = myBooksListHtml(); $("#historyOverlay").classList.add("show"); fillBookTitles(); }
+function closeHistory(){ $("#historyOverlay").classList.remove("show"); }
+
+/* ============ 標題列下拉選單 ============ */
+function toggleMenu(e){ e.stopPropagation(); const w=e.currentTarget.closest('.hmenu-wrap'); if(w) w.classList.toggle('open'); }
+function closeMenu(){ const w=document.querySelector('.hmenu-wrap.open'); if(w) w.classList.remove('open'); }
+document.addEventListener('click', closeMenu);   // 點外面就收起選單
+// 補抓清單中缺標題的帳本名稱(舊資料)
+function fillBookTitles(){
+  if(!cloudOK) return;
+  getMyBooks().filter(b=>!b.title).forEach(b=>{
+    db.ref("books/"+b.id+"/title").once("value").then(s=>{
+      const t=s.val(); if(!t) return;
+      setMyBookTitle(b.id,t);
+      const el=document.querySelector('[data-bk="'+b.id+'"] .mb-title'); if(el) el.textContent=t;
+    }).catch(()=>{});
+  });
+}
+
+// 取得「實際參與分攤的名單」:若發起人參與,把他併入第 0 位
+function effectivePeople(){
+  if(state.ownerJoin){
+    let share = state.mode==="even" ? (state._ownerShare||0)
+              : Math.max(0, (state.total||0) - state.people.reduce((a,p)=>a+(+p.amt||0),0));
+    return [{name:state.ownerName||"我(代墊)", amt:share, paid:true, owner:true}, ...state.people];
+  }
+  return state.people;
+}
+
+/* ============ 啟動 ============ */
+function init(){
+  const {id,key}=parseHash();
+  if(id){
+    bookId=id;
+    if(!cloudOK){ $("#app").innerHTML=shellMsg("雲端尚未設定","這份帳本需要連線雲端資料庫才能開啟。請發起人在 index.html 的 <b>firebaseConfig</b> 填入 Firebase 設定。"); return; }
+    subscribe(id,key);
+  }else{
+    state = blankState();
+    isOwner = true;
+    mode = "edit";
+    render();
+  }
+}
+
+// 訂閱雲端帳本,任何人更新都會即時收到
+function subscribe(id,key){
+  if(unsub) unsub();
+  const ref=db.ref("books/"+id);
+  const handler=snap=>{
+    if(mode==="edit") return;          // 發起人編輯中,不被即時更新打斷
+    const data=snap.val();
+    if(!data){ $("#app").innerHTML=shellMsg("找不到帳本","這個連結可能已失效,或帳本已被刪除。請向發起人索取新的連結。"); return; }
+    state=normalize(data);
+    bookId=id;
+    const provided = key || localStorage.getItem("sb_owner_"+id);
+    isOwner = !!(provided && state.ownerHash && keyHash(provided)===state.ownerHash);
+    if(isOwner){ ownerKey=provided; localStorage.setItem("sb_owner_"+id, provided); }
+    mode="view";
+    render();
+  };
+  ref.on("value",handler);
+  unsub=()=>ref.off("value",handler);
+}
+
+// 全頁訊息(設定錯誤 / 找不到帳本)
+function shellMsg(title,body){
+  const oldFab=$(".fab"); if(oldFab) oldFab.remove();
+  return `<div class="editor"><h1><span class="dot"></span>${title}</h1><p class="lead">${body}</p></div>`;
+}
+
+/* ============ 計算 ============ */
+// 參與分攤的總人數(含發起人)
+function headcount(){ return state.people.length + (state.ownerJoin?1:0); }
+function recalcEven(){
+  const n = headcount() || 1;
+  const per = state.total / n;
+  state.people.forEach(p=>p.amt = per);
+  state._ownerShare = state.ownerJoin ? per : 0;
+}
+function sumPeople(){
+  const base = state.people.reduce((a,p)=>a+(+p.amt||0),0);
+  return base + (state.ownerJoin && state.mode==="even" ? (+state._ownerShare||0) : 0);
+}
+// 統計以「實際名單」為準(含發起人那筆,且發起人預設已付)
+function paidCount(){ return effectivePeople().filter(p=>p.paid).length; }
+function paidAmt(){ return effectivePeople().filter(p=>p.paid).reduce((a,p)=>a+(+p.amt||0),0); }
+
+/* ============ 渲染:檢視 ============ */
+function renderView(){
+  const total = state.total||0;
+  const list = effectivePeople();
+  const n = list.length;
+  const pc = paidCount();
+  const collected = paidAmt();
+  const pending = state.people.filter(p=>!p.paid && p.claimed).length;  // 待確認筆數
+  const pct = total>0 ? Math.min(100, collected/total*100) : (n? pc/n*100:0);
+
+  const bankLabel = state.pay.bankName || (state.pay.bankCode && BANKS[state.pay.bankCode]) || "";
+  const showPay = bankLabel || state.pay.acct || state.pay.other;
+
+  let html = `<div class="ticket">
+    <div class="ticket-head">
+      ${isOwner ? `<div class="head-actions">
+        <button onclick="openShare()" title="分享" aria-label="分享"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button>
+        <div class="hmenu-wrap">
+          <button class="hmenu-btn" onclick="toggleMenu(event)" title="更多" aria-label="更多"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="hmenu">
+            <button onclick="enterEdit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>編輯</button>
+            <button onclick="newBook()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>建立新帳本</button>
+            ${getMyBooks().length ? `<button onclick="openHistory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>我的帳本</button>` : ''}
+          </div>
+        </div>
+      </div>` : ''}
+      <div class="brand"><span class="dot"></span>Split · 分帳</div>
+      <div class="ticket-title">${esc(state.title)||"未命名費用"}</div>
+      <div class="ticket-sub">共 ${n} 人均分 · ${state.mode==="even"?"平均分攤":"自訂金額"}</div>
+    </div>
+    <div class="ticket-body">
+      <div class="total-row">
+        <span class="total-label">費用總計</span>
+        <span class="total-amt"><span class="cur">NT$</span>${fmt(total)}</span>
+      </div>
+      <div class="per-row"><span>已收金額</span><b>NT$ ${fmt(collected)}</b></div>
+
+      <div class="progress">
+        <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="prog-text">
+          <span class="ok">✓ 已付 ${pc} 人</span>
+          <span class="left">尚欠 ${n-pc} 人 · NT$ ${fmt(total-collected)}</span>
+        </div>
+      </div>
+
+      ${isOwner && pending>0 ? `<div class="hint-top" style="margin:14px 0 0;background:#dfe9f3;color:#2c6e91;">🔔 有 ${pending} 筆付款申報待確認 · 點成員的「待確認」即確認收款</div>` : ''}
+
+      <ul class="people">`;
+
+  // people 真實索引(扣掉發起人偏移)用於 ownerSet / guestClaim
+  const offset = state.ownerJoin ? 1 : 0;
+  list.forEach((p,i)=>{
+    const color = p.owner ? "#2b2620" : palette[(i-offset)%palette.length];
+    const initial = p.owner ? "★" : ((p.name||"?").trim().charAt(0) || "?");
+    const realIdx = i - offset;            // 對應 state.people 的索引
+    const pending = !p.paid && p.claimed;  // 已申報、待發起人確認
+    let badge;
+    if(p.owner){
+      badge = `<span class="badge paid"><span class="ic">✓</span>已付</span>`;
+    }else if(p.paid){
+      badge = isOwner
+        ? `<button class="badge paid tappable" onclick="ownerSet(${realIdx},false)"><span class="ic">✓</span>已確認</button>`
+        : `<span class="badge paid"><span class="ic">✓</span>已付</span>`;
+    }else if(pending){
+      badge = isOwner
+        ? `<button class="badge pending tappable" onclick="ownerSet(${realIdx},true)"><span class="ic">!</span>待確認</button>`
+        : `<button class="badge pending tappable" onclick="guestClaim(${realIdx},false)"><span class="ic">…</span>已申報</button>`;
+    }else{
+      badge = isOwner
+        ? `<button class="badge unpaid tappable" onclick="ownerSet(${realIdx},true)"><span class="ic">○</span>未付</button>`
+        : `<button class="badge unpaid tappable" onclick="guestClaim(${realIdx},true)"><span class="ic">○</span>我已繳</button>`;
+    }
+    const cls = p.paid?'is-paid':(pending?'is-pending':'');
+    html += `<li class="person ${cls}">
+      <span class="avatar" style="background:${color}">${esc(initial)}</span>
+      <span class="p-mid">
+        <div class="p-name">${esc(p.name)||("成員 "+(i+1))}${p.owner?' <span style="font-size:11px;color:var(--accent);font-weight:700;">· 代墊人</span>':''}</div>
+        <div class="p-amt">${p.owner?'自付份額':'應付'} NT$ ${fmt(p.amt)}</div>
+      </span>
+      ${badge}
+    </li>`;
+  });
+  html += `</ul>`;
+
+  if(showPay){
+    html += `<div class="pay-box"><h3>💳 收款資訊 <span class="tag">轉給代墊人</span></h3>`;
+    if(bankLabel){
+      const code = state.pay.bankCode? state.pay.bankCode+" " : "";
+      html += `<div class="pay-line"><span class="k">銀行</span><span class="v">${esc(code)}${esc(bankLabel)}</span></div>`;
+    }
+    if(state.pay.acct){
+      html += `<div class="pay-line"><span class="k">帳號</span><span class="v">${esc(state.pay.acct)}<button class="copy-btn" onclick="copyText('${esc(state.pay.acct)}',this)">複製</button></span></div>`;
+    }
+    if(state.pay.other){
+      html += `<div class="pay-line"><span class="k">其他</span><span class="v">${esc(state.pay.other)}</span></div>`;
+    }
+    html += `</div>`;
+  }
+
+  if(state.note){
+    html += `<div class="note-box">📝 ${esc(state.note)}</div>`;
+  }
+
+  html += `<div class="foot">${isOwner?'你是此帳本的發起人 · 點成員狀態即可確認/取消收款':'完成轉帳後,點自己那列的「我已繳」送出申報,等發起人確認'}</div>
+    </div></div>`;
+
+  if(BMC_URL){
+    html += `<div class="bmc-wrap">
+      <span class="bmc-say">這個小工具對你有幫助嗎?</span>
+      <a class="bmc" href="${BMC_URL}" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M7.5 3.4c0 1-.7 1.3-.7 2.3M10.8 3.4c0 1-.7 1.3-.7 2.3"/></svg>
+        請開發者喝杯咖啡
+      </a>
+    </div>`;
+  }
+
+  $("#app").innerHTML = html;
+}
+
+/* ============ 渲染:編輯 ============ */
+function renderEdit(){
+  const s = state;
+  const sum = sumPeople();
+  const diff = Math.round(sum - (s.total||0));
+
+  let bankOpts = `<option value="">— 選銀行(可不選) —</option>`;
+  Object.entries(BANKS).forEach(([code,name])=>{
+    bankOpts += `<option value="${code}" ${s.pay.bankCode===code?'selected':''}>${code} ${name}</option>`;
+  });
+
+  let pplRows = "";
+  s.people.forEach((p,i)=>{
+    pplRows += `<div class="pe-row">
+      <span class="idx">${i+1}</span>
+      <input type="text" placeholder="名字" value="${esc(p.name)}" oninput="setName(${i},this.value)">
+      ${s.mode==="custom"?`<input class="amt-in" type="number" inputmode="numeric" placeholder="金額" value="${p.amt||''}" oninput="setAmt(${i},this.value)">`:''}
+      <button class="del" onclick="delPerson(${i})" title="刪除">×</button>
+    </div>`;
+  });
+
+  // 歷史紀錄入口:只在這台裝置建立過帳本時,於標題右側顯示 icon
+  const histBtn = getMyBooks().length ? historyIconBtn("hist-btn") : '';
+
+  $("#app").innerHTML = `<div class="editor">
+    <div class="ed-head"><h1><span class="dot"></span>建立分帳</h1>${histBtn}</div>
+    <p class="lead">填好以下內容,產生連結貼到群組。成員可自行按「我已繳」送出申報,但只有你(發起人)確認後才算已付。</p>
+
+    <div class="field">
+      <label>費用名稱</label>
+      <input type="text" id="f-title" placeholder="例如:墾丁三日遊住宿" value="${esc(s.title)}" oninput="state.title=this.value">
+    </div>
+
+    <div class="field">
+      <label>費用總計 (NT$)</label>
+      <input type="number" id="f-total" inputmode="numeric" placeholder="例如:9000" value="${s.total||''}" oninput="setTotal(this.value)">
+    </div>
+
+    <div class="field">
+      <label>分攤方式</label>
+      <div class="seg">
+        <button class="${s.mode==='even'?'on':''}" onclick="setMode('even')">平均分攤</button>
+        <button class="${s.mode==='custom'?'on':''}" onclick="setMode('custom')">自訂金額</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>我自己 <span class="opt">· 代墊人是否也參與分攤</span></label>
+      <div class="owner-join ${s.ownerJoin?'on':''}" onclick="toggleOwnerJoin()">
+        <span class="oj-check">${s.ownerJoin?'✓':''}</span>
+        <span class="oj-text">
+          <b>我也參與分攤</b>
+          <small>${s.ownerJoin?'你會算一份,且預設標記為已付(不用轉給自己)':'只有其他成員分攤,你不計入'}</small>
+        </span>
+      </div>
+      ${s.ownerJoin?`<input type="text" style="margin-top:9px" placeholder="你的顯示名稱" value="${esc(s.ownerName)}" oninput="state.ownerName=this.value">`:''}
+    </div>
+
+    <div class="field">
+      <label>其他成員 <span class="opt">· 共 ${headcount()} 人分攤${s.ownerJoin?'(含你)':''}</span></label>
+      <div class="ppl-edit">${pplRows}</div>
+      <button class="add-p" onclick="addPerson()">＋ 新增成員</button>
+      ${s.mode==='even'
+        ? `<div class="split-info">平均每人 NT$ ${fmt((s.total||0)/(headcount()||1))}</div>`
+        : `<div class="split-info ${diff!==0?'warn':''}">合計 NT$ ${fmt(sum)}${diff!==0?` · 與總額差 ${diff>0?'+':''}${fmt(diff)}`:' · 與總額相符 ✓'}</div>`}
+    </div>
+
+    <div class="field">
+      <label>收款資訊 <span class="opt">· 讓大家知道轉到哪</span></label>
+      <select id="f-bank" onchange="setBank(this.value)">${bankOpts}</select>
+      <div style="height:9px"></div>
+      <input type="text" placeholder="或自行輸入銀行名稱" value="${esc(s.pay.bankName)}" oninput="state.pay.bankName=this.value">
+      <div style="height:9px"></div>
+      <input type="text" inputmode="numeric" placeholder="銀行帳號" value="${esc(s.pay.acct)}" oninput="state.pay.acct=this.value">
+      <div style="height:9px"></div>
+      <input type="text" placeholder="其他(街口 / LINE Pay ID / 現金當面)" value="${esc(s.pay.other)}" oninput="state.pay.other=this.value">
+    </div>
+
+    <div class="field">
+      <label>備註 <span class="opt">· 選填</span></label>
+      <textarea rows="2" placeholder="例如:6/30 前付款,謝謝大家！" oninput="state.note=this.value">${esc(s.note)}</textarea>
+    </div>
+
+    <div class="actions">
+      ${bookId?'<button class="btn btn-ghost" onclick="cancelEdit()">取消</button>':''}
+      <button class="btn btn-primary" onclick="saveAndShare()">${bookId?'儲存變更':'建立帳本 →'}</button>
+    </div>
+  </div>`;
+}
+
+function render(){
+  if(state.mode==="even") recalcEven();
+  if(mode==="edit") renderEdit(); else renderView();
+  // 進度條動畫
+  if(mode==="view"){ const f=$(".bar-fill"); if(f){const w=f.style.width;f.style.width="0";requestAnimationFrame(()=>requestAnimationFrame(()=>f.style.width=w));} }
+}
+
+/* ============ 編輯事件 ============ */
+// 只更新分攤摘要那一行,避免在輸入時重建整個表單(會導致閃爍與失焦)
+function updateSplitInfo(){
+  const el=$(".split-info"); if(!el) return;
+  if(state.mode==="even"){
+    el.className="split-info";
+    el.textContent=`平均每人 NT$ ${fmt((state.total||0)/(headcount()||1))}`;
+  }else{
+    const sum=sumPeople(), diff=Math.round(sum-(state.total||0));
+    el.className="split-info"+(diff!==0?" warn":"");
+    el.textContent=diff!==0?`合計 NT$ ${fmt(sum)} · 與總額差 ${diff>0?'+':''}${fmt(diff)}`:`合計 NT$ ${fmt(sum)} · 與總額相符 ✓`;
+  }
+}
+function setTotal(v){ state.total=+v||0; if(state.mode==="even"){recalcEven();} updateSplitInfo(); }
+function setMode(m){ state.mode=m; if(m==="even")recalcEven(); renderEdit(); }
+function setName(i,v){ state.people[i].name=v; }
+function setAmt(i,v){ state.people[i].amt=+v||0; updateSplitInfo(); }
+function addPerson(){ state.people.push({name:"",amt:0,paid:false,claimed:false}); if(state.mode==="even")recalcEven(); renderEdit(); }
+function delPerson(i){ if(headcount()<=1){toast("至少需要一位參與者");return;} state.people.splice(i,1); if(state.mode==="even")recalcEven(); renderEdit(); }
+function setBank(code){ state.pay.bankCode=code; if(code&&BANKS[code]) state.pay.bankName=""; }
+function toggleOwnerJoin(){ state.ownerJoin=!state.ownerJoin; if(state.mode==="even")recalcEven(); renderEdit(); }
+
+function enterEdit(){ mode="edit"; render(); }
+function cancelEdit(){ mode="view"; render(); }
+// 建立新帳本:清掉目前帳本與訂閱,回到空白建立表單(不必跳回首頁)
+function newBook(){
+  if(unsub){ unsub(); unsub=null; }
+  bookId=null; ownerKey=null; isOwner=true;
+  state=blankState(); mode="edit";
+  history.replaceState(null,"",location.pathname + location.search);  // 清掉網址 hash,且不觸發 hashchange
+  render();
+  window.scrollTo(0,0);
+}
+
+function pname(i){ return state.people[i].name || ("成員 "+(i+1)); }
+
+function saveAndShare(){
+  if(!state.title.trim()){ toast("請填寫費用名稱"); return; }
+  if(!state.total || state.total<=0){ toast("請填寫費用總計"); return; }
+  if(!cloudOK){ toast("尚未設定雲端資料庫(見 index.html 內 firebaseConfig 說明)"); return; }
+  if(state.mode==="even") recalcEven();
+  if(!bookId){                              // 第一次建立 → 產生帳本與發起人密鑰
+    bookId   = genId();
+    ownerKey = genId(16);
+    state.ownerHash = keyHash(ownerKey);
+    localStorage.setItem("sb_owner_"+bookId, ownerKey);
+  }
+  state.people.forEach(p=>{ if(p.paid===undefined)p.paid=false; if(p.claimed===undefined)p.claimed=false; });
+  const wasNew = !unsub;
+  const okey = ownerKey || localStorage.getItem("sb_owner_"+bookId);
+  db.ref("books/"+bookId).set(state).then(()=>{
+    if(wasNew) subscribe(bookId, ownerKey);
+    recordMyBook(bookId, okey, state.title);   // 記到本機「我的帳本」清單,供遺失連結時救援
+    isOwner = true; mode = "view";
+    location.hash = bookId + (ownerKey?("."+ownerKey):"");
+    render();
+    openShare();
+  }).catch(e=>toast("儲存失敗:"+(e.message||e)));
+}
+
+/* ============ 檢視事件 ============ */
+// 發起人:確認 / 取消收款(paid 才算正式已付)
+function ownerSet(i, paid){
+  if(!isOwner || !cloudOK) return;
+  state.people[i].paid = paid;
+  if(paid) state.people[i].claimed = false;   // 確認後清掉申報旗標
+  render();                                    // 樂觀更新,監聽會再校正
+  db.ref("books/"+bookId+"/people/"+i).update({paid:paid, claimed:state.people[i].claimed})
+    .then(()=>toast(paid?`已確認「${pname(i)}」收款 ✓`:`已取消「${pname(i)}」的確認`))
+    .catch(e=>toast("更新失敗:"+(e.message||e)));
+}
+// 成員:送出 / 收回付款申報(僅標記 claimed,等發起人確認)
+function guestClaim(i, claimed){
+  if(!cloudOK || !bookId){ toast("雲端未連線"); return; }
+  state.people[i].claimed = claimed;
+  render();
+  db.ref("books/"+bookId+"/people/"+i+"/claimed").set(claimed)
+    .then(()=>toast(claimed?"已送出付款申報,等發起人確認 ✓":"已收回申報"))
+    .catch(e=>toast("送出失敗:"+(e.message||e)));
+}
+
+/* ============ 分享 ============ */
+function shareUrl(){
+  return location.origin + location.pathname + "#" + bookId;  // 成員連結:只含 bookId,不含密鑰
+}
+// 直接分享:叫出手機系統分享選單(LINE / 訊息…)。由浮層內按鈕觸發,確保有使用者手勢
+function nativeShare(){
+  if(!bookId || !navigator.share) return;
+  navigator.share({
+    title: "Split · 分帳",
+    text: `「${state.title||'分帳'}」分帳明細,點開查看並回報已繳`,
+    url: shareUrl()
+  }).catch(()=>{});   // 使用者取消分享不視為錯誤
+}
+function openShare(){
+  if(!bookId){ toast("請先建立帳本"); return; }
+  $("#shareLink").value = shareUrl();
+  // 有原生分享(多為手機)才顯示「直接分享」,桌機只留複製
+  const nb = $("#nativeShareBtn"); if(nb) nb.style.display = navigator.share ? "" : "none";
+  $("#shareOverlay").classList.add("show");
+}
+function closeShare(){ $("#shareOverlay").classList.remove("show"); }
+function copyShare(){ copyToClipboard($("#shareLink").value); toast("成員連結已複製,去群組貼上吧！"); }
+function copyText(t,btn){ copyToClipboard(t); if(btn){btn.classList.add("done");btn.textContent="已複製";setTimeout(()=>{btn.classList.remove("done");btn.textContent="複製";},1500);} }
+
+function copyToClipboard(text){
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).catch(()=>fallbackCopy(text)); }
+  else fallbackCopy(text);
+}
+function fallbackCopy(text){
+  const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";
+  document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);
+}
+
+window.addEventListener("hashchange",()=>{
+  const {id,key}=parseHash();
+  if(id && id!==bookId){ mode="view"; bookId=id; if(cloudOK) subscribe(id,key); }
+});
+init();
+</script>
+</body>
+</html>
